@@ -1,0 +1,51 @@
+name: Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+
+jobs:
+  test:
+    environment: testing
+    runs-on: ubuntu-latest
+    env:
+      MONGO_URI: ${{ secrets.MONGO_URI }}
+      MONGO_USERNAME: ${{ secrets.MONGO_USERNAME }}
+      MONGO_PASSWORD: ${{ secrets.MONGO_PASSWORD }}
+      MONGO_PORT: ${{ secrets.MONGO_PORT }}
+    steps:
+      - name: Get Code
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: npm-deps-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run server
+        run: npm start & npx wait-on http://127.0.0.1:${{ env.MONGO_PORT }}
+
+      - name: Run tests
+        run: npm test
+
+      - name: Output information
+        run: |
+          echo "Mongo URI: $MONGO_URI"
+          echo "Mongo Username: $MONGO_USERNAME"
+          echo "Mongo Port: $MONGO_PORT"
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    env:
+      MONGO_URI: ${{ secrets.MONGO_URI }}
+    steps:
+      - name: Output information
+        run: |
+          echo "Deploying app to production using DB: $MONGO_URI"
